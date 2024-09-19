@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <h2>Crear Publicación</h2>
+    <form method="POST" action="{% url 'crear_publicacion' %}">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="contenido">Contenido:</label>
+            <textarea class="form-control" id="contenido" name="contenido" rows="5" required></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary mt-2">Publicar</button>
+    </form>
+</div>
+{% endblock %}

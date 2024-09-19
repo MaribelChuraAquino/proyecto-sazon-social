@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="h4">Editar Grupo: {{ grupo.nombre }}</h1>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-primary mt-2">Guardar Cambios</button>
+    </form>
+
+    <a href="{% url 'detalle_grupo' grupo.id %}" class="btn btn-secondary mt-2">Volver a Detalles del Grupo</a>
+</div>
+{% endblock %}

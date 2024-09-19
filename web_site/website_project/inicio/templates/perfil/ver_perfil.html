@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% load static%}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>{{ perfil.usuario.nombre_usuario }}</h2>
+    {% if perfil.foto_perfil %}
+        <img src="{{ perfil.foto_perfil.url }}" alt="Foto de perfil" class="img-thumbnail">
+    {% else %}
+        <img src="{% static 'default-profile.png' %}" alt="Foto de perfil" class="img-thumbnail">
+    {% endif %}
+    <p>{{ perfil.biografia }}</p>
+    <a href="{% url 'editar_perfil' %}" class="btn btn-primary">Editar Perfil</a>
+</div>
+{% endblock %}

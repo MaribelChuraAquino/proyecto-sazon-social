@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="container mt-4">
+    <h2>Lista de Publicaciones</h2>
+    
+    <a href="{% url 'crear_publicacion' %}" class="btn btn-primary mb-3">Crear Nueva Publicación</a>
+    <ul class="list-group">
+        {% for publicacion in publicaciones %}
+        <li class="list-group-item">
+            <h5>{{ publicacion.autor.nombre_usuario }} - {{ publicacion.fecha_publicacion }}</h5>
+            <p>{{ publicacion.contenido }}</p>
+            <a href="{% url 'editar_publicacion' publicacion.id %}" class="btn btn-warning btn-sm">Editar</a>
+            <a href="{% url 'eliminar_publicacion' publicacion.id %}" class="btn btn-danger btn-sm">Eliminar</a>
+        </li>
+        {% empty %}
+        <li class="list-group-item">No hay publicaciones aún.</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

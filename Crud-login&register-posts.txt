@@ -1,0 +1,265 @@
+models.py
+============================================================
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.contrib.auth import get_user_model
+from django.db import models
+
+class UsuarioManager(BaseUserManager):
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError('El email es obligatorio')
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)  # Encripta la contraseña
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, password=None, **extra_fields):
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+        return self.create_user(email, password, **extra_fields)
+
+class Usuario(AbstractBaseUser, PermissionsMixin):
+    email = models.EmailField(unique=True)
+    nombres = models.CharField(max_length=100)
+    nombre_usuario = models.CharField(max_length=100, unique=True)
+    is_staff = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    last_login = models.DateTimeField(null=True, blank=True)
+
+    objects = UsuarioManager()
+
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['nombres', 'nombre_usuario']
+
+    def __str__(self):
+        return self.email
+    
+class Publicacion(models.Model):
+    autor = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
+    contenido = models.TextField()
+    fecha_publicacion = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Publicación de {self.autor} en {self.fecha_publicacion}"
+
+==================================================================
+admin.py
+==================================================================
+from django.contrib import admin
+from .models import Usuario, Publicacion
+
+
+class UsuarioAdmin(admin.ModelAdmin):
+    list_display = ('email', 'nombre_usuario', 'nombres', 'is_staff', 'is_active')
+    search_fields = ('email', 'nombre_usuario')
+    list_filter = ('is_staff', 'is_active')
+
+admin.site.register(Usuario, UsuarioAdmin)
+    
+
+class Publicaciones():
+    list_display = ('autor', 'contenido', 'fecha_publicacion')
+    search_fields = ('autor', 'fecha_publicacion')
+admin.site.register(Publicacion)
+
+==================================================================
+views.py
+==================================================================
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
+from django.contrib.auth import authenticate, login as auth_login
+from .models import Publicacion
+from django.contrib.auth.decorators import login_required
+from .models import Usuario
+
+
+##### CRUD ########
+def lista_usuarios(request):
+    usuarios = Usuario.objects.all()
+    return render(request, 'lista_usuarios.html', {'usuarios': usuarios})
+
+def crear_usuario(request):
+    if request.method == 'POST':
+        nombres = request.POST['nombres']
+        nombre_usuario = request.POST['nombre_usuario']
+        email = request.POST['email']
+        contrasena = request.POST['contrasena']
+        
+        if Usuario.objects.filter(nombre_usuario=nombre_usuario).exists():
+            messages.error(request, 'El nombre de usuario ya está en uso.')
+            return redirect('crear_usuario')
+        if Usuario.objects.filter(email=email).exists():
+            messages.error(request, 'El correo electrónico ya está en uso.')
+            return redirect('crear_usuario')
+
+        usuario = Usuario(
+            nombres=nombres,
+            nombre_usuario=nombre_usuario,
+            email=email,
+        )
+        usuario.set_password(contrasena)  # Establece la contraseña con encriptación
+        usuario.save()
+
+        messages.success(request, 'Usuario creado con éxito.')
+        return redirect('lista_usuarios')
+    
+    return render(request, 'crear_usuario.html')
+
+def editar_usuario(request, usuario_id):
+    usuario = get_object_or_404(Usuario, id=usuario_id)
+    if request.method == 'POST':
+        usuario.nombres = request.POST['nombres']
+        usuario.nombre_usuario = request.POST['nombre_usuario']
+        usuario.email = request.POST['email']
+        
+        # Manejar la contraseña solo si se proporciona
+        contrasena = request.POST.get('contrasena')
+        if contrasena:
+            usuario.set_password(contrasena)
+        
+        usuario.is_staff = 'is_staff' in request.POST
+        usuario.save()
+        messages.success(request, 'Usuario actualizado con éxito.')
+        return redirect('lista_usuarios')
+    return render(request, 'editar_usuario.html', {'usuario': usuario})
+
+def eliminar_usuario(request, usuario_id):
+    usuario = get_object_or_404(Usuario, id=usuario_id)
+    if request.method == 'POST':
+        usuario.delete()
+        messages.success(request, 'Usuario eliminado con éxito.')
+        return redirect('lista_usuarios')
+    return render(request, 'eliminar_usuario.html', {'usuario': usuario})
+
+####### LOGIN & REGISTER ############
+
+def registro_usuario(request):
+    if request.method == 'POST':
+        nombres = request.POST['nombres']
+        nombre_usuario = request.POST['nombre_usuario']
+        email = request.POST['email']
+        contrasena = request.POST['contrasena']
+        
+        if Usuario.objects.filter(nombre_usuario=nombre_usuario).exists():
+            messages.error(request, 'El nombre de usuario ya está en uso.')
+            return redirect('registro_usuario')
+        if Usuario.objects.filter(email=email).exists():
+            messages.error(request, 'El correo electrónico ya está en uso.')
+            return redirect('registro_usuario')
+
+        usuario = Usuario(
+            nombre_usuario=nombre_usuario,
+            email=email,
+            nombres=nombres
+        )
+        usuario.set_password(contrasena)  # Establece la contraseña con encriptación
+        usuario.save()
+
+        messages.success(request, 'Usuario registrado con éxito. Ahora puedes iniciar sesión.')
+        return redirect('login_usuario')
+    
+    return render(request, 'registro.html')
+
+def login_usuario(request):
+    if request.method == 'POST':
+        email = request.POST.get('email')
+        contrasena = request.POST.get('contrasena')
+        
+        # Autenticación del usuario
+        usuario = authenticate(request, email=email, password=contrasena)
+        if usuario is not None:
+            auth_login(request, usuario)
+            messages.success(request, f'Bienvenido, {usuario.email}!')
+            return redirect('lista_publicaciones')
+        else:
+            messages.error(request, 'Credenciales incorrectas.')
+
+    return render(request, 'login.html')
+
+############### POSTS ####################
+
+@login_required
+def lista_publicaciones(request):
+    publicaciones = Publicacion.objects.all()
+    return render(request, 'publicaciones/lista_publicaciones.html', {'publicaciones': publicaciones})
+
+@login_required
+def crear_publicacion(request):
+    if request.method == 'POST':
+        contenido = request.POST['contenido']
+        Publicacion.objects.create(
+            autor=request.user,
+            contenido=contenido
+        )
+        messages.success(request, 'Publicación creada con éxito.')
+        return redirect('lista_publicaciones')
+    return render(request, 'publicaciones/crear_publicacion.html')
+
+@login_required
+def editar_publicacion(request, publicacion_id):
+    publicacion = get_object_or_404(Publicacion, id=publicacion_id)
+    if request.method == 'POST':
+        publicacion.contenido = request.POST['contenido']
+        publicacion.save()
+        messages.success(request, 'Publicación actualizada con éxito.')
+        return redirect('lista_publicaciones')
+    return render(request, 'publicaciones/editar_publicacion.html', {'publicacion': publicacion})
+
+@login_required
+def eliminar_publicacion(request, publicacion_id):
+    publicacion = get_object_or_404(Publicacion, id=publicacion_id)
+    if request.method == 'POST':
+        publicacion.delete()
+        messages.success(request, 'Publicación eliminada con éxito.')
+        return redirect('lista_publicaciones')
+    return render(request, 'publicaciones/eliminar_publicacion.html', {'publicacion': publicacion})
+
+
+==================================================================
+urls.py
+==================================================================
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path('usuarios/', views.lista_usuarios, name='lista_usuarios'),
+    path('usuarios/crear/', views.crear_usuario, name='crear_usuario'),
+    path('usuarios/editar/<int:usuario_id>/', views.editar_usuario, name='editar_usuario'),
+    path('usuarios/eliminar/<int:usuario_id>/', views.eliminar_usuario, name='eliminar_usuario'),
+    path('registro/', views.registro_usuario, name='registro_usuario'),
+    path('login/', views.login_usuario, name='login_usuario'),
+    path('publicaciones/', views.lista_publicaciones, name='lista_publicaciones'),
+    path('publicaciones/crear/', views.crear_publicacion, name='crear_publicacion'),
+    path('publicaciones/<int:publicacion_id>/editar/', views.editar_publicacion, name='editar_publicacion'),
+    path('publicaciones/<int:publicacion_id>/eliminar/', views.eliminar_publicacion, name='eliminar_publicacion'),
+]
+   
+==================================================================
+settings.py (backend)
+==================================================================
+debajo de static: 
+
+AUTH_USER_MODEL = 'inicio.Usuario'
+
+==================================================================
+Comentarios:
+==================================================================
+En caso no les permita realizar el makemigrations y ni el migrate
+
+pasen a borrar su base de datos con los siguientes comando en la terminal:
+
+del db.sqlite3
+
+ir a la carpeta migrations y eliminar la carpeta de pycache y añadir un nuevo archivo llamado: 
+
+__init__.py
+
+python manage.py makemigrations
+
+python manage.py migrate
+
+python manage.py createsuperuser
+
+python manage.py runserver
+

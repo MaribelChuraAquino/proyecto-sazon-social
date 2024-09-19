@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4 profile-container">
+  
+    {% if grupo.portada %}
+        <img src="{{ grupo.portada.url }}" class="img-fluid mb-2" alt="Portada del grupo" style="width: 100%; height: 200px; object-fit: cover;">
+    {% else %}
+        <div class="bg-secondary text-white text-center py-3 mb-2" style="width: 100%; height: 200px;">Portada del Grupo</div>
+    {% endif %}
+
+    <div class="d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center">
+            {% if grupo.foto_perfil %}
+                <img src="{{ grupo.foto_perfil.url }}" class="img-fluid" alt="Foto de perfil del grupo" style="width: 120px; height: 120px;">
+            {% else %}
+                <div class="bg-primary text-white text-center rounded-circle" style="width: 150px; height: 150px;">Foto de Perfil</div>
+            {% endif %}
+            <div class="ms-3">
+                <h1>{{ grupo.nombre }}</h1>
+            </div>
+        </div>
+        <div class="ms-auto"> <!-- Contenedor para las acciones a la derecha -->
+            {% if request.user == grupo.creador or request.user.is_superuser %}
+              <a href="{% url 'eliminar_grupo' grupo.id %}" class="btn btn-danger">Eliminar Grupo</a>
+              <a href="{% url 'editar_grupo' grupo.id %}" class="btn btn-warning">Editar Grupo</a>
+            {% endif %}
+        </div>
+    </div>
+
+
+    <!-- Navbar con divisiones -->
+    <ul class="nav nav-pills mb-4" style="margin-top: 20px;">
+      <li class="nav-item">
+          <a class="nav-linkk active" id="descripcion-tab" data-bs-toggle="pill" href="#descripcion">Descripción</a>
+      </li>
+      <li class="nav-item">
+          <a class="nav-linkk" id="publicaciones-tab" data-bs-toggle="pill" href="#publicaciones">Publicaciones</a>
+      </li>
+      <li class="nav-item">
+          <a class="nav-linkk" id="miembros-tab" data-bs-toggle="pill" href="#miembros">Miembros</a>
+      </li>
+      <li class="nav-item">
+          <a class="nav-linkk" id="creador-tab" data-bs-toggle="pill" href="#creador">Creador</a>
+      </li>
+    </ul>
+  
+
+    <div class="tab-content mt-4">
+      <!-- Descripción -->
+      <div id="descripcion" class="tab-pane fade show active">
+          <h2 class="h4">Descripción</h2>
+          <p class="tab-text">{{ grupo.descripcion }}</p>
+      </div>
+  
+      <!-- Publicaciones -->
+      <div id="publicaciones" class="tab-pane fade">
+          <h2 class="h4">Publicaciones</h2>
+          <!-- Botón para abrir el modal de crear publicación -->
+          <button type="button" class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#createPostModal">
+              Crear Publicación
+          </button>
+          {% if publicaciones %}
+              <ul class="list-group mb-4">
+                  {% for publicacion in publicaciones %}
+                      <li class="list-group-itemm">
+                          <strong>{{ publicacion.usuario.nombre_usuario }}</strong> dijo:
+                          <p>{{ publicacion.contenido }}</p>
+                          <small class="text-muted">Publicado el {{ publicacion.fecha_publicacion }}</small>
+                      </li>
+                  {% endfor %}
+              </ul>
+          {% else %}
+              <p class="text-muted">No hay publicaciones en este grupo aún.</p>
+          {% endif %}
+      </div>
+  
+      <!-- Miembros -->
+      <div id="miembros" class="tab-pane fade">
+          <h2 class="h4">Miembros</h2>
+          <!-- Botón para abrir el modal de añadir amigos -->
+          <button type="button" class="btn btn-secondary mb-3" data-bs-toggle="modal" data-bs-target="#addFriendsModal">
+              Añadir Amigos
+          </button>
+          <ul class="list-group">
+              {% for miembro in grupo.miembros.all %}
+                  <li class="list-group-itemm">{{ miembro.nombre_usuario }}</li>
+              {% empty %}
+                  <li class="list-group-itemm text-muted">No hay miembros en este grupo.</li>
+              {% endfor %}
+          </ul>
+      </div>
+  
+      <!-- Creador -->
+      <div id="creador" class="tab-pane fade">
+          <h2 class="h4">Creador del Grupo</h2>
+          <p><strong>{{ grupo.creador.nombre_usuario }}</strong></p>
+          <p><strong>Fecha de Creación:</strong> {{ grupo.fecha_creacion }}</p>
+      </div>
+  </div>
+  
+
+    <!-- Modal para crear publicaciones -->
+    <div class="modal fade" id="createPostModal" tabindex="-1" aria-labelledby="createPostModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="createPostModalLabel">Escribe una publicación</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form method="POST" action="{% url 'detalle_grupo' grupo.id %}">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            <label for="amigos">Selecciona amigos:</label>
+                            <select class="selectpicker form-select" id="amigos" name="amigos" multiple data-live-search="true" data-size="5">
+                                {% for amigo in amigos %}
+                                    <option value="{{ amigo.id }}">{{ amigo.username }}</option>
+                                {% empty %}
+                                    <option disabled>No tienes amigos para añadir.</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary mt-2">Añadir</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para añadir amigos -->
+    <div class="modal fade" id="addFriendsModal" tabindex="-1" aria-labelledby="addFriendsModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addFriendsModalLabel">Añadir Amigos al Grupo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form method="POST" action="{% url 'detalle_grupo' grupo.id %}">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            <label for="amigos">Selecciona un amigo:</label>
+                            <div id="amigos">
+                                {% for amigo in amigos %}
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="amigos" id="amigo_{{ amigo.id }}" value="{{ amigo.id }}">
+                                        <label class="form-check-label" for="amigo_{{ amigo.id }}">
+                                            {{ amigo.nombre_usuario }}
+                                        </label>
+                                    </div>
+                                {% empty %}
+                                    <p>No tienes amigos para añadir.</p>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary mt-2">Añadir</button>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <a href="{% url 'grupos_usuario' %}" class="btn btn-secondary mt-4">Volver a la lista de grupos</a>
+</div>
+<script>
+    $(document).ready(function() {
+        $('.selectpicker').selectpicker();
+    });
+</script>
+{% endblock %}
